@@ -479,9 +479,9 @@ elif [[ "$strpart" =~ vol([0-9]+)perfdata ]]; then
     iopscritical=`echo ${strCritical} | cut -d\, -f1`
     latencycritical=`echo ${strCritical} | cut -d\, -f2`
 
-    perfdata="| iops=${iops}, latency=${latency}"
+    perfdata="| iops=${iops}, latency=${latency}ms"
     iopssummary="iops: ${iops} "
-    latencysummary="latency: ${latency} "
+    latencysummary="latency: ${latency}ms "
     outcome="OK: "
     ret=0
 
@@ -502,19 +502,19 @@ elif [[ "$strpart" =~ vol([0-9]+)perfdata ]]; then
     fi
 
     if [ ${latency} -ge ${latencywarn} ]; then
-        latencysummary="latency > ${iopswarn} "
+        latencysummary="latency (${latency}) > ${iopswarn} "
         outcome="WARNING: "
         ret=1
     fi
 
     if [ ${iops} -ge ${iopscritical} ]; then
-        iopssummary="iops > ${iopscritical} "
+        iopssummary="iops (${iops}) > ${iopscritical} "
         outcome="CRITICAL: "
         ret=2
     fi
 
     if [ ${latency} -ge ${latencycritical} ]; then
-        latencysummary="latency > ${latencycritical} "
+        latencysummary="latency (${latency}) > ${latencycritical} "
         outcome="CRITICAL: "
         ret=2
     fi
