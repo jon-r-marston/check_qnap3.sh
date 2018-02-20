@@ -28,7 +28,7 @@ if [ ! "$#" == "5" ]; then
         echo
 	echo "Usage: ./check_qnap <hostname> <community> <part> <warning> <critical>"
         echo
-	echo "Parts are: sysinfo, systemuptime, temp, cpu, cputemp, freeram, powerstatus, fans, diskused, hdstatus, hd#status, hd#temp, hdtemp, volstatus (Raid Volume Status), vol#status"
+	echo "Parts are: sysinfo, systemuptime, temp, cpu, cputemp, freeram, powerstatus, fans, diskused, hdstatus, hd#status, hd#temp, hdtemp, volstatus (Raid Volume Status), vol#status, vol#perfdata"
         echo
 	echo "hdstatus shows status & temp; volstatus check all vols and vols space; powerstatus check power supply"
         echo "<#> is 1-8 for hd, 1-5 for vol"
@@ -466,6 +466,61 @@ elif [ "$strpart" == "vol4status" ]; then
                 echo "CRITICAL: "$Vol_Status
                 exit 2
         fi
+
+# Vol#Perfdata -----------------------------------------------------------------------------------------------------------------------------------------
+# Give warning and critical strings as comma separated: iops,latency.
+elif [[ "$strpart" =~ vol([0-9]+)perfdata ]]; then
+    volnum=${BASH_REMATCH[1]}
+    iops=$(snmpget -v2c -c "$strCommunity" "$strHostname" 1.3.6.1.4.1.24681.1.4.1.11.5.6.2.1.3.${volnum} | awk '{print $4}')
+    latency=$(snmpget -v2c -c "$strCommunity" "$strHostname" 1.3.6.1.4.1.24681.1.4.1.11.5.6.2.1.4.${volnum} | awk '{print $4}')
+
+    iopswarn=`echo ${strWarning} | cut -d\, -f1`
+    latencywarn=`echo ${strWarning} | cut -d\, -f2`
+    iopscritical=`echo ${strCritical} | cut -d\, -f1`
+    latencycritical=`echo ${strCritical} | cut -d\, -f2`
+
+    perfdata="| iops=${iops}, latency=${latency}"
+    iopssummary="iops: ${iops} "
+    latencysummary="latency: ${latency} "
+    outcome="OK: "
+    ret=0
+
+    if [[ ! "${iops}" =~ ^[0-9]+$ ]]; then
+        echo "UNKNOWN: No iops stats available for volume ${volnum}"
+        exit 3
+    fi
+
+    if [[ ! "${latency}" =~ ^[0-9]+$ ]]; then
+        echo "UNKNOWN: No latency stats available for volume ${volnum}"
+        exit 3
+    fi
+
+    if [ ${iops} -ge ${iopswarn} ]; then
+        iopssummary="iops (${iops}) > ${iopswarn} "
+        outcome="WARNING: "
+        ret=1
+    fi
+
+    if [ ${latency} -ge ${latencywarn} ]; then
+        latencysummary="latency > ${iopswarn} "
+        outcome="WARNING: "
+        ret=1
+    fi
+
+    if [ ${iops} -ge ${iopscritical} ]; then
+        iopssummary="iops > ${iopscritical} "
+        outcome="CRITICAL: "
+        ret=2
+    fi
+
+    if [ ${latency} -ge ${latencycritical} ]; then
+        latencysummary="latency > ${latencycritical} "
+        outcome="CRITICAL: "
+        ret=2
+    fi
+
+    echo "${outcome}${iopssummary}${latencysummary}${perfdata}"
+    exit ${ret}
 
 # Volume 5 Status----------------------------------------------------------------------------------------------------------------------------------------
 elif [ "$strpart" == "vol5status" ]; then
